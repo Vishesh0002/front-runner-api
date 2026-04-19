@@ -12,7 +12,7 @@ RUN npm ci
 COPY . .
 
 RUN npm run build
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" npx prisma generate
 
 FROM node:20-alpine AS production
 
@@ -24,7 +24,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 RUN npm ci --only=production
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 
