@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?   @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         Role      @default(CUSTOMER)
+  addresses    Address[]
+  orders       Order[]
+  refreshTokens RefreshToken[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  phone     String
+  isDefault Boolean @default(false) @map("is_default")
+  orders    Order[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("addresses")
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  description String      @db.Text
+  image       String
+  price       Int         // in paise (INR smallest unit)
+  mrp         Int
+  stock       Int         @default(0)
+  tag         String?
+  badge       String?
+  active      Boolean     @default(true)
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("products")
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  userId            String?     @map("user_id")
+  user              User?       @relation(fields: [userId], references: [id])
+  items             OrderItem[]
+  subtotal          Int
+  shipping          Int
+  tax               Int         @default(0)
+  total             Int
+  status            OrderStatus @default(PENDING)
+  
+  // Razorpay fields
+  razorpayOrderId   String?     @unique @map("razorpay_order_id")
+  razorpayPaymentId String?     @unique @map("razorpay_payment_id")
+  razorpaySignature String?     @map("razorpay_signature")
+  
+  // Guest checkout fields
+  guestEmail        String?     @map("guest_email")
+  guestPhone        String?     @map("guest_phone")
+  guestName         String?     @map("guest_name")
+  
+  // Shipping
+  shippingAddressId String?     @map("shipping_address_id")
+  shippingAddress   Address?    @relation(fields: [shippingAddressId], references: [id])
+  shippingDetails   Json?       @map("shipping_details") // snapshot
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String? @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id])
+  title     String  // snapshot at time of order
+  price     Int     // snapshot at time of order
+  qty       Int
+
+  @@map("order_items")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
