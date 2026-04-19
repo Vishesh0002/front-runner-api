@@ -1,11 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  console.log('Bootstrap starting...');
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  console.log('Nest app created');
 
   // Enable validation
   app.useGlobalPipes(
@@ -34,16 +35,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('Protein API')
-    .setDescription('Front Runner Health Care E-commerce API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
+  console.log('Bootstrap reached listen step');
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
   console.log(`Application running on: http://localhost:${port}`);
