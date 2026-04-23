@@ -7,8 +7,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
-const SHIPPING_FEE = 5000; // ₹50 in paise
-const FREE_SHIPPING_THRESHOLD = 200000; // ₹2000
+// Stored in rupees to match the frontend and DB.
+const SHIPPING_FEE = 50; // ₹50
+const FREE_SHIPPING_THRESHOLD = 2000; // ₹2000
+
+// Supported coupons (code -> percentage off the subtotal).
+const COUPONS: Record<string, number> = {
+  FAMILY: 50,
+};
 
 @Injectable()
 export class OrdersService {
@@ -48,8 +54,22 @@ export class OrdersService {
       };
     });
 
-    const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-    const total = subtotal + shipping;
+    // Apply coupon (if any) to the subtotal.
+    let discount = 0;
+    let appliedCoupon: string | undefined;
+    if (dto.coupon) {
+      const code = dto.coupon.trim().toUpperCase();
+      const pct = COUPONS[code];
+      if (!pct) {
+        throw new BadRequestException('Invalid coupon code');
+      }
+      discount = Math.round((subtotal * pct) / 100);
+      appliedCoupon = code;
+    }
+    const discountedSubtotal = subtotal - discount;
+
+    const shipping = discountedSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const total = discountedSubtotal + shipping;
 
     // Create order in DB (PENDING)
     const order = await this.prisma.order.create({
@@ -62,15 +82,19 @@ export class OrdersService {
         guestEmail: !userId ? dto.guestEmail : undefined,
         guestName: !userId ? dto.guestName : undefined,
         guestPhone: !userId ? dto.guestPhone : undefined,
-        shippingDetails: dto.shipping as any,
+        shippingDetails: {
+          ...dto.shipping,
+          ...(appliedCoupon ? { coupon: appliedCoupon, discount } : {}),
+        } as any,
         items: { create: orderItems },
       },
       include: { items: true },
     });
 
-    // Create Razorpay order
+    // Create Razorpay order (Razorpay requires amount in paise)
+    const amountInPaise = total * 100;
     const razorpayOrder = await this.paymentsService.createRazorpayOrder({
-      amount: total,
+      amount: amountInPaise,
       receipt: order.id,
       notes: { orderId: order.id },
     });
@@ -84,7 +108,7 @@ export class OrdersService {
     return {
       orderId: order.id,
       razorpayOrderId: razorpayOrder.id,
-      amount: total,
+      amount: amountInPaise, // in paise, required by Razorpay SDK on the frontend
       currency: 'INR',
       keyId: this.paymentsService.getPublicKey(),
     };

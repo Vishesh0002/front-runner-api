@@ -79,4 +79,9 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   guestPhone?: string;
+
+  @ApiProperty({ required: false, description: 'Coupon code (e.g. FAMILY)' })
+  @IsOptional()
+  @IsString()
+  coupon?: string;
 }
