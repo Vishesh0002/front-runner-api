@@ -20,11 +20,41 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
+    const baseSlug = (dto.title || 'product')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    let slug = baseSlug || `product-${Date.now()}`;
+    let counter = 1;
+    while (await this.prisma.product.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${counter++}`;
+    }
+
     return this.prisma.product.create({
       data: {
-        ...dto,
-        slug: dto.title.toLowerCase().replace(/\s+/g, '-'),
+        title: dto.title,
+        description: dto.description || `${dto.title} - premium quality supplement.`,
+        image: dto.image,
+        price: Number(dto.price),
+        mrp: Number(dto.mrp || dto.price),
+        stock: dto.stock !== undefined ? Number(dto.stock) : 100,
+        tag: dto.tag || null,
+        badge: dto.badge || null,
+        active: true,
+        slug,
       },
     });
+  }
+
+  async delete(id: string) {
+    try {
+      return await this.prisma.product.delete({ where: { id } });
+    } catch {
+      return await this.prisma.product.update({
+        where: { id },
+        data: { active: false },
+      });
+    }
   }
 }

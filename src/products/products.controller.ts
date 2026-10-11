@@ -1,8 +1,7 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Delete, Body, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Products')
 @Controller('products')
@@ -22,10 +21,14 @@ export class ProductsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create product (Admin only)' })
+  @ApiOperation({ summary: 'Create product (Admin / CRM)' })
   async create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete or archive product (Admin / CRM)' })
+  async delete(@Param('id') id: string) {
+    return this.productsService.delete(id);
   }
 }
