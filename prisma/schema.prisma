@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -64,6 +65,7 @@ model Product {
   badge       String?
   active      Boolean     @default(true)
   orderItems  OrderItem[]
+  verificationCodes VerificationCode[]
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -129,4 +131,44 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  BLOCKED
+}
+
+model VerificationCode {
+  id                String             @id @default(cuid())
+  code              String             @unique
+  batchNumber       String             @map("batch_number")
+  productId         String?            @map("product_id")
+  product           Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  mfgDate           DateTime?          @map("mfg_date")
+  expDate           DateTime?          @map("exp_date")
+  status            VerificationStatus @default(UNVERIFIED)
+  verificationCount Int                @default(0) @map("verification_count")
+  firstVerifiedAt   DateTime?          @map("first_verified_at")
+  lastVerifiedAt    DateTime?          @map("last_verified_at")
+  verifiedPhone     String?            @map("verified_phone")
+  logs              VerificationLog[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  @@map("verification_codes")
+  @@index([code])
+  @@index([batchNumber])
+}
+
+model VerificationLog {
+  id         String           @id @default(cuid())
+  codeId     String           @map("code_id")
+  code       VerificationCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  ipAddress  String?          @map("ip_address")
+  userAgent  String?          @map("user_agent")
+  phone      String?
+  status     String
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  @@map("verification_logs")
 }
